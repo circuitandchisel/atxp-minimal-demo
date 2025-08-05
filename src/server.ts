@@ -1,7 +1,9 @@
 import express, { Request, Response } from "express";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";import BigNumber from "bignumber.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { payMcpServer, requirePayment } from '@longrun/paymcp-client';
+import BigNumber from "bignumber.js";
 
 const server = new McpServer({
   name: "atxp-min-demo",
@@ -16,6 +18,8 @@ server.tool(
     b: z.number().describe("The second number to add"),
   },
   async ({ a, b }) => {
+    // Require payment for the tool call
+    await requirePayment({price: BigNumber(0.01)});
     return {
       content: [
         {
@@ -29,6 +33,12 @@ server.tool(
 
 const app = express();
 app.use(express.json());
+
+// Set up the ATXP payment middleware
+app.use(payMcpServer({
+  destination: "HQeMf9hmaus7gJhfBtPrPwPPsDLGfeVf8Aeri3uPP3Fy",
+  payeeName: 'Add',
+}))
 
 const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
   sessionIdGenerator: undefined, // set to undefined for stateless servers
