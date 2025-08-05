@@ -1,0 +1,34 @@
+{
+  "name": "atxp-min-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "build": "tsc && chmod 755 build/server.js",
+    "start": "node build/server.js",
+    "dev": "tsx --watch src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": [
+    "build"
+  ],
+  "bin": {
+    "atxp-min-demo": "./build/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.1",
+    "bignumber.js": "^9.1.1",
+    "express": "^5.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
