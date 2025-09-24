@@ -9,27 +9,27 @@ import { atxpExpress } from '@atxp/express';
 
 
 const getServer = () => {
-  // Create an MCP server with implementation details
   const server = new McpServer({
     name: 'atxp-min-demo',
     version: '1.0.0',
   });
 
-  // Register a tool specifically for testing resumability
   server.tool(
-    'secure-data',
-    'Secure data',
+    "add",
+    "Use this tool to add two numbers together.",
     {
-      message: z.string().optional().describe('Message to secure'),
+      a: z.number().describe("The first number to add"),
+      b: z.number().describe("The second number to add"),
     },
-    async ({ message }: { message?: string }) => {
+    async ({ a, b }) => {
+      // Require payment for the tool call
       await requirePayment({price: BigNumber(0.01)});
       return {
         content: [
           {
-            type: 'text',
-            text: `Secure data: ${message || 'No message provided'}`,
-          }
+            type: "text",
+            text: `${a + b}`,
+          },
         ],
       };
     }
