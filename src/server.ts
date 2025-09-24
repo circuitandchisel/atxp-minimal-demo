@@ -1,58 +1,69 @@
-import express, { Request, Response } from "express";
-import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { payMcpServer, requirePayment } from '@longrun/paymcp-client';
-import BigNumber from "bignumber.js";
+/* eslint-disable no-console */
+import express, { Request, Response } from 'express';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { z } from 'zod';
+import { BigNumber } from 'bignumber.js';
+import { requirePayment, ChainPaymentDestination } from '@atxp/server';
+import { atxpExpress } from '@atxp/express';
 
-const server = new McpServer({
-  name: "atxp-min-demo",
-  version: "1.0.0",
-});
 
-server.tool(
-  "add",
-  "Use this tool to add two numbers together.",
-  {
-    a: z.number().describe("The first number to add"),
-    b: z.number().describe("The second number to add"),
-  },
-  async ({ a, b }) => {
-    // Require payment for the tool call
-    await requirePayment({price: BigNumber(0.01)});
-    return {
-      content: [
-        {
-          type: "text",
-          text: `${a + b}`,
-        },
-      ],
-    };
-  }
-);
+const getServer = () => {
+  // Create an MCP server with implementation details
+  const server = new McpServer({
+    name: 'atxp-min-demo',
+    version: '1.0.0',
+  });
+
+  // Register a tool specifically for testing resumability
+  server.tool(
+    'secure-data',
+    'Secure data',
+    {
+      message: z.string().optional().describe('Message to secure'),
+    },
+    async ({ message }: { message?: string }) => {
+      await requirePayment({price: BigNumber(0.01)});
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Secure data: ${message || 'No message provided'}`,
+          }
+        ],
+      };
+    }
+  );
+
+  return server;
+}
 
 const app = express();
 app.use(express.json());
 
-// Set up the ATXP payment middleware
-app.use(payMcpServer({
-  destination: "HQeMf9hmaus7gJhfBtPrPwPPsDLGfeVf8Aeri3uPP3Fy",
-  payeeName: 'Add',
-}))
+const destination = new ChainPaymentDestination('HQeMf9hmaus7gJhfBtPrPwPPsDLGfeVf8Aeri3uPP3Fy', 'base');
 
-const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
-  sessionIdGenerator: undefined, // set to undefined for stateless servers
-});
+app.use(atxpExpress({
+  paymentDestination: destination,
+  payeeName: 'ATXP Example Resource Server',
+  allowHttp: true, // Only use in development
+}));
 
-// Setup routes for the server
-const setupServer = async () => {
-  await server.connect(transport);
-};
 
 app.post('/', async (req: Request, res: Response) => {
-  console.log('Received MCP request:', req.body);
+  const server = getServer();
   try {
-      await transport.handleRequest(req, res, req.body);
+    const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true
+    });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+    res.on('close', () => {
+      console.log('Request closed');
+      transport.close();
+      server.close();
+    });
   } catch (error) {
     console.error('Error handling MCP request:', error);
     if (!res.headersSent) {
@@ -92,13 +103,18 @@ app.delete('/', async (req: Request, res: Response) => {
   }));
 });
 
+
 // Start the server
-const PORT = process.env.PORT || 3000;
-setupServer().then(() => {
-  app.listen(PORT, () => {
-    console.log(`MCP Streamable HTTP Server listening on port ${PORT}`);
-  });
-}).catch(error => {
-  console.error('Failed to set up the server:', error);
-  process.exit(1);
+app.listen(3000, (error) => {
+  if (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+  console.log(`ATXP Minimal Demo listening on port 3000`);
+});
+
+// Handle server shutdown
+process.on('SIGINT', async () => {
+  console.log('Shutting down server...');
+  process.exit(0);
 });
